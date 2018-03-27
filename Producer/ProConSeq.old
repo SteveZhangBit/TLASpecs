@@ -23,22 +23,22 @@ CONSTANT Producer, Consumer
   process producer \in Producer
   begin
     l1: while TRUE do
-\*    l2:   Lock();
+    l2:   Lock();   \* Lock the queue to avoid data racing.
     l3:   if Len(queue) < Max then
     l4:     queue := Append(queue, <<"Product">>);
           end if;
-\*    l5:   Unlock();
+    l5:   Unlock();
         end while;
   end process;
 
   process consumer \in Consumer
   begin
     l1: while TRUE do
-\*    l2:   Lock();
+    l2:   Lock();   \* Lock the queue to avoid data racing.
     l3:   if Len(queue) > 0 then
     l4:     queue := Tail(queue);
           end if;
-\*    l5:   Unlock();
+    l5:   Unlock();
         end while;
   end process;
 end algorithm*)
@@ -110,5 +110,5 @@ THEOREM Spec => ProCon!SizeInv
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Mar 23 10:09:06 EDT 2018 by changjian
+\* Last modified Mon Mar 26 20:14:49 EDT 2018 by changjian
 \* Created Thu Mar 08 22:34:49 EST 2018 by changjian

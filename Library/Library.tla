@@ -8,10 +8,11 @@ EXTENDS Integers, FiniteSets
 (***************************************************************************)
 CONSTANT Author, Title, Subject, CopyID
 
-Copy == [ author : Author,
-          title : Title,
-          subjects : SUBSET Subject,
-          id : CopyID ]
+\* The record type representing the book copies.
+Copy == [author : Author,
+         title : Title,
+         subjects : SUBSET Subject,
+         id : CopyID]
 
 (***************************************************************************)
 (* RealPerson defines the set of all the real people which are able to     *)
@@ -49,9 +50,15 @@ VARIABLES
   staff,    \* The set of all the workers in the library.
   out       \* out defines the output of the system which should be a tuple.
 
+\* A special null value indicating the book has not been added to the library.
 CONSTANT NullData
 
 LibraryTypeInvariant ==
+  (*************************************************************************)
+  (* Type invariant asserts the "types" of the variables.  Since TLA+ is   *)
+  (* untyped, so the type invariant is mainly asserting that the value of  *)
+  (* a variable is an element of some set of values.                       *)
+  (*************************************************************************)
   /\ books \subseteq Copy
   /\ records \in [Copy -> Data \cup {NullData}]
   /\ users \subseteq RealPerson
@@ -66,20 +73,37 @@ LibraryBookInvariant ==
   /\ \A user \in users :
         LET outbooks == {b \in books : /\ records[b].lastuser = user
                                        /\ records[b].status = "out"}
+        \* Checking the number of books a person borrowed
+        \* should be less than Max
         IN  Cardinality(outbooks) <= Max
 
 LibraryInit ==
   /\ books = {}
   /\ records = [b \in Copy |-> NullData]
+  \* Choosing a random person from RealPerson as a initial user.
   /\ users = {CHOOSE p \in RealPerson : TRUE}
+  \* Choosing a random person from RealPerson as a initial staff.
   /\ staff = {CHOOSE p \in RealPerson : TRUE}
   /\ out = <<>>
 
+(***************************************************************************)
+(* The helper function for accessing control.  It returns wether the doer  *)
+(* is a member of staff.                                                   *)
+(***************************************************************************)
 restricted(doer) == doer \in staff
 
+(***************************************************************************)
+(* The helper function for accessing control.  It returns wether the doer  *)
+(* is a member of staff or one of the users.                               *)
+(***************************************************************************)
 unrestricted(doer) == doer \in staff \cup users
 
 AddBookCopy(book) ==
+  (*************************************************************************)
+  (* Add a book to the library.  The book should not be in the library and *)
+  (* should have unique id.  The initial state for the book is [lastuser   *)
+  (* |-> Nobody, status |-> "in"]                                          *)
+  (*************************************************************************)
   /\ book \notin books
   /\ \A b \in books : b.id # book.id
   /\ books' = books \cup {book}
@@ -89,6 +113,10 @@ AddBookCopy(book) ==
   /\ UNCHANGED <<users, staff>>
 
 RemoveBookCopy(book) ==
+  (*************************************************************************)
+  (* Remove a book from the library.  The book should be already in the    *)
+  (* library.  Removing should set the book record to null.                *)
+  (*************************************************************************)
   /\ book \in books
   /\ books' = books \ {book}
   /\ records' = [records EXCEPT ![book] = NullData]
@@ -96,6 +124,9 @@ RemoveBookCopy(book) ==
   /\ UNCHANGED <<users, staff>>
 
 BooksByAuthor(author) ==
+  (*************************************************************************)
+  (* A query.  Returns all the books by an author's name.                  *)
+  (*************************************************************************)
   /\ out' = <<"ok", {b \in books : b.author = author}>>
   /\ UNCHANGED <<books, records, users, staff>>
 
@@ -145,6 +176,10 @@ RobustRemoveBookCopy(doer, book) ==
     /\ UNCHANGED <<books, records, users, staff>>
 
 CheckOutBook(book, borrower) ==
+  (*************************************************************************)
+  (* It represents a user borrows a book from the library.  The book       *)
+  (* should be already in the library and not be checked out.              *)
+  (*************************************************************************)
   /\ book \in books
   /\ records[book].status = "in"
   /\ records' = [records EXCEPT ![book].lastuser = borrower,
@@ -153,6 +188,11 @@ CheckOutBook(book, borrower) ==
   /\ UNCHANGED <<users, books, staff>>
 
 RobustCheckOutBook(book, borrower) ==
+  (*************************************************************************)
+  (* A robust version of checking out book.  The borrower should be in the *)
+  (* user set.  Also, the user should not have been checked out books      *)
+  (* equal or greater than Max.                                            *)
+  (*************************************************************************)
   /\ borrower \in users \* The borrower should be a registered user.
   /\ LET outbooks == {b \in books : /\ records[b].lastuser = borrower
                                     /\ records[b].status = "out"}
@@ -160,6 +200,10 @@ RobustCheckOutBook(book, borrower) ==
   /\ CheckOutBook(book, borrower)
 
 CheckInBook(book, borrower) ==
+  (*************************************************************************)
+  (* A borrower returns a book to the library.  The book should be already *)
+  (* in the library and marked as "out".                                   *)
+  (*************************************************************************)
   /\ book \in books
   /\ records[book] = [lastuser |-> borrower, status |-> "out"]
   /\ records' = [records EXCEPT ![book].status = "in"]
@@ -197,5 +241,5 @@ THEOREM LibrarySpec => LibraryInvariant
 
 =============================================================================
 \* Modification History
-\* Last modified Sun Mar 25 15:08:03 EDT 2018 by changjian
+\* Last modified Mon Mar 26 19:47:15 EDT 2018 by changjian
 \* Created Wed Jan 17 21:31:30 EST 2018 by changjian
